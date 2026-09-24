@@ -13,6 +13,7 @@
 #include <zmk/events/hid_indicators_changed.h>
 #include <zmk/events/battery_state_changed.h>
 #include <zmk/events/activity_state_changed.h>
+#include <zmk/events/endpoint_changed.h>
 #include <zmk/endpoints.h>
 #if IS_ENABLED(CONFIG_ZMK_BLE)
 #include <zmk/ble.h>
@@ -59,6 +60,9 @@ static int rrgb_event_listener(const zmk_event_t *eh) {
     const struct zmk_layer_state_changed *lev = as_zmk_layer_state_changed(eh);
     if (lev) { update_fn_overlay(); }
 
+    const struct zmk_endpoint_changed *epev = as_zmk_endpoint_changed(eh);
+    if (epev) { update_fn_overlay(); }
+
     const struct zmk_hid_indicators_changed *iev = as_zmk_hid_indicators_changed(eh);
     if (iev) { rrgb_overlay_set_caps((iev->indicators & BIT(1)) != 0); }
 
@@ -75,6 +79,7 @@ static int rrgb_event_listener(const zmk_event_t *eh) {
 ZMK_LISTENER(rrgb_listener, rrgb_event_listener);
 ZMK_SUBSCRIPTION(rrgb_listener, zmk_position_state_changed);
 ZMK_SUBSCRIPTION(rrgb_listener, zmk_layer_state_changed);
+ZMK_SUBSCRIPTION(rrgb_listener, zmk_endpoint_changed);
 ZMK_SUBSCRIPTION(rrgb_listener, zmk_hid_indicators_changed);
 ZMK_SUBSCRIPTION(rrgb_listener, zmk_battery_state_changed);
 #if IS_ENABLED(CONFIG_RAINY_RGB_IDLE_BLANK)
