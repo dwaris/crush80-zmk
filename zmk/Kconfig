@@ -2,6 +2,7 @@ rsource "drivers/usb/Kconfig"
 rsource "drivers/bluetooth/Kconfig"
 rsource "drivers/sensor/Kconfig"
 rsource "drivers/watchdog/Kconfig"
+rsource "drivers/led_strip/Kconfig"
 
 config BOOT_DIAG
 	bool "Boot diagnostic (.noinit SRAM buffer for SWS debug)"
