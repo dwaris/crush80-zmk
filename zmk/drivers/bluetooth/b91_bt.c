@@ -419,7 +419,7 @@ static int b91_bt_hci_rx_handler(void)
  * Analog register access (serial interface, not memory-mapped)
  * ----------------------------------------------------------------------- */
 
-static u8 b91_analog_read(u8 addr)
+static __maybe_unused u8 b91_analog_read(u8 addr)
 {
 	unsigned int key = irq_lock();
 
