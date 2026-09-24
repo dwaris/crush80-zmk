@@ -11,7 +11,7 @@
 
 /* Neutral state — set by the adapter from the ZMK event thread. */
 void rrgb_overlay_set_caps(bool on);
-void rrgb_overlay_set_fn(bool active);
+void rrgb_overlay_set_fn(bool active, bool is_usb, uint8_t bt_prof, bool bt_connected);
 void rrgb_overlay_set_battery(uint8_t pct);
 void rrgb_overlay_battery_show(uint32_t tick);   /* start the ~3s gauge window */
 

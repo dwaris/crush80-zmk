@@ -4,11 +4,6 @@
 #include "overlay.h"
 #include "color.h"
 #include "led_map.h"     /* rrgb_led_for_position */
-#if IS_ENABLED(CONFIG_ZMK_BLE)
-#include <zmk/ble.h>
-#endif
-#include <zmk/endpoints.h>
-#include "overlay.h"
 
 #define BAT_SHOW_FRAMES  150  /* ~3s at 50fps */
 #define BAT_SEG_FIRST    18   /* number row keys 1..0 = positions 18..27 */
@@ -32,11 +27,19 @@ static const uint8_t fn_keys[] = {
 
 static volatile bool     s_caps;
 static volatile bool     s_fn;
+static volatile bool     s_fn_is_usb = true;
+static volatile uint8_t  s_fn_bt_prof;
+static volatile bool     s_fn_bt_connected;
 static volatile uint8_t  s_battery;
 static volatile uint32_t s_bat_until;
 
 void rrgb_overlay_set_caps(bool on)        { s_caps = on; }
-void rrgb_overlay_set_fn(bool active)      { s_fn = active; }
+void rrgb_overlay_set_fn(bool active, bool is_usb, uint8_t bt_prof, bool bt_connected) {
+    s_fn = active;
+    s_fn_is_usb = is_usb;
+    s_fn_bt_prof = bt_prof;
+    s_fn_bt_connected = bt_connected;
+}
 void rrgb_overlay_set_battery(uint8_t pct) { s_battery = pct; }
 void rrgb_overlay_battery_show(uint32_t tick) { s_bat_until = tick + BAT_SHOW_FRAMES; }
 
@@ -68,20 +71,15 @@ void rrgb_overlay_render(struct rrgb *px, uint16_t n, uint32_t tick) {
         set_pos(px, n, 45, (struct rrgb){255, 120, 0});
         set_pos(px, n, 46, (struct rrgb){255, 120, 0});
 
-#if IS_ENABLED(CONFIG_ZMK_BLE)
         /* Highlight active connection mode: USB (Key 5) or active BT profile (Key 1..3) */
-        if (zmk_endpoint_get_preferred_transport() == ZMK_TRANSPORT_USB) {
+        if (s_fn_is_usb) {
             set_pos(px, n, 22, (struct rrgb){0, 255, 128}); /* Key '5' (USB): Cyan */
-        } else {
-            int prof = zmk_ble_active_profile_index();
-            if (prof >= 0 && prof < 3) {
-                struct rrgb bt_col = zmk_ble_active_profile_is_connected()
-                    ? (struct rrgb){0, 255, 0}    /* Green: Connected */
-                    : (struct rrgb){0, 100, 255}; /* Blue: Searching / Pairing */
-                set_pos(px, n, (uint8_t)(18 + prof), bt_col); /* Key '1', '2', or '3' */
-            }
+        } else if (s_fn_bt_prof < 3) {
+            struct rrgb bt_col = s_fn_bt_connected
+                ? (struct rrgb){0, 255, 0}    /* Green: Connected */
+                : (struct rrgb){0, 100, 255}; /* Blue: Searching / Pairing */
+            set_pos(px, n, (uint8_t)(18 + s_fn_bt_prof), bt_col); /* Key '1', '2', or '3' */
         }
-#endif
     }
     /* 2. CapsLock: white on the logo LED(s). */
     if (s_caps) {

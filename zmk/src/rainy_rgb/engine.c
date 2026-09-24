@@ -34,7 +34,7 @@ LOG_MODULE_REGISTER(rrgb_engine, CONFIG_LOG_DEFAULT_LEVEL);
  * whole board.) CONFIG_STACK_SENTINEL in app.conf turns a future overflow into
  * exactly that logged reboot instead of a silent hang, and CONFIG_INIT_STACKS
  * lets rrgb_stack_unused() report the real headroom. */
-#define RRGB_STACK     2048
+#define RRGB_STACK     2560
 #define RRGB_PRIO      10   /* preemptible, below BLE */
 
 /* LED VCC rail (PC2) management: cut the rail only after the strip has stayed

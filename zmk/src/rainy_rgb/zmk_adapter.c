@@ -13,6 +13,10 @@
 #include <zmk/events/hid_indicators_changed.h>
 #include <zmk/events/battery_state_changed.h>
 #include <zmk/events/activity_state_changed.h>
+#include <zmk/endpoints.h>
+#if IS_ENABLED(CONFIG_ZMK_BLE)
+#include <zmk/ble.h>
+#endif
 #include "engine.h"
 #include "overlay.h"
 
@@ -36,12 +40,24 @@ int rrgb_strip_init(void) {
     return 0;
 }
 
+static void update_fn_overlay(void) {
+    bool is_usb = true;
+    uint8_t bt_prof = 0;
+    bool bt_connected = false;
+#if IS_ENABLED(CONFIG_ZMK_BLE)
+    is_usb = (zmk_endpoint_get_preferred_transport() == ZMK_TRANSPORT_USB);
+    bt_prof = (uint8_t)zmk_ble_active_profile_index();
+    bt_connected = zmk_ble_active_profile_is_connected();
+#endif
+    rrgb_overlay_set_fn(zmk_keymap_layer_active(1), is_usb, bt_prof, bt_connected);
+}
+
 static int rrgb_event_listener(const zmk_event_t *eh) {
     const struct zmk_position_state_changed *ev = as_zmk_position_state_changed(eh);
     if (ev) { rrgb_on_key(ev->position, ev->state); }
 
     const struct zmk_layer_state_changed *lev = as_zmk_layer_state_changed(eh);
-    if (lev) { rrgb_overlay_set_fn(zmk_keymap_layer_active(1)); }
+    if (lev) { update_fn_overlay(); }
 
     const struct zmk_hid_indicators_changed *iev = as_zmk_hid_indicators_changed(eh);
     if (iev) { rrgb_overlay_set_caps((iev->indicators & BIT(1)) != 0); }
@@ -67,7 +83,7 @@ ZMK_SUBSCRIPTION(rrgb_listener, zmk_activity_state_changed);
 
 static int rrgb_overlay_seed(void) {
     rrgb_overlay_set_caps((zmk_hid_indicators_get_current_profile() & BIT(1)) != 0);
-    rrgb_overlay_set_fn(zmk_keymap_layer_active(1));
+    update_fn_overlay();
     rrgb_overlay_set_battery(zmk_battery_state_of_charge());
     return 0;
 }
