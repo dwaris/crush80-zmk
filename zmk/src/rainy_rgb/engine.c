@@ -242,10 +242,93 @@ void rrgb_set_persist(const struct rrgb_persist *in) {
     rt.speed = (in->speed < 1) ? 1 : in->speed;
 }
 
+#define BOOT_ANIM_FRAMES 80
+
+static void render_boot_anim(struct rrgb *px, uint16_t frame) {
+    for (uint16_t i = 0; i < RRGB_N; i++) {
+        px[i] = (struct rrgb){0, 0, 0};
+    }
+
+    /* Phase 1: Sidebars charge up from bottom to top (Frames 0..25) */
+    if (frame < 30) {
+        uint8_t progress = (uint8_t)(frame * 6 / 25);
+        for (uint8_t k = 0; k < 6; k++) {
+            if (5 - k <= progress) {
+                uint8_t val = (5 - k == progress) ? 255 : 180;
+                struct rrgb col = (struct rrgb){0, scale8(val, 220), val};
+                px[SIDE_LED_FIRST + k] = col;
+                px[SIDE_LED_FIRST + 6 + k] = col;
+            }
+        }
+    } else {
+        /* Keep sidebars lit during sweep */
+        for (uint16_t i = SIDE_LED_FIRST; i <= SIDE_LED_LAST && i < RRGB_N; i++) {
+            px[i] = (struct rrgb){0, 200, 240};
+        }
+    }
+
+    /* Phase 2: Beam sweeps left to right across keys (Frames 15..70) */
+    if (frame >= 15 && frame <= 70) {
+        int16_t beam_x = (int16_t)((frame - 15) * 260 / 55);
+
+        for (uint16_t i = 0; i < 92 && i < RRGB_N; i++) {
+            if (!rrgb_led_xy) {
+                continue;
+            }
+            int16_t dx = (int16_t)rrgb_led_xy[i].x - beam_x;
+            if (dx < 0) {
+                dx = -dx;
+            }
+
+            if (dx < 28) {
+                uint8_t intensity = (uint8_t)(255 - dx * 9);
+                struct rrgb beam_col = {
+                    .r = scale8(intensity, 180),
+                    .g = scale8(intensity, 240),
+                    .b = intensity,
+                };
+                px[i] = beam_col;
+            } else if (rrgb_led_xy[i].x < beam_x) {
+                int16_t trail_dist = beam_x - (int16_t)rrgb_led_xy[i].x;
+                if (trail_dist < 80) {
+                    uint8_t trail_val = (uint8_t)(160 - trail_dist * 2);
+                    struct rrgb trail_col = hsv2rgb(rt.hue, rt.sat, scale8(rt.val, trail_val));
+                    px[i] = trail_col;
+                }
+            }
+        }
+    }
+
+    /* Phase 3: Logo badge pulse when beam reaches the right side (Frames 50..80) */
+    if (frame >= 50) {
+        uint8_t pulse_frame = (uint8_t)(frame - 50);
+        uint8_t pulse_bright = (pulse_frame < 10) ? (pulse_frame * 25) : (uint8_t)(255 - (pulse_frame - 10) * 12);
+        struct rrgb logo_col = {
+            .r = scale8(pulse_bright, 220),
+            .g = scale8(pulse_bright, 240),
+            .b = pulse_bright,
+        };
+        for (uint16_t i = LOGO_LED_FIRST; i <= LOGO_LED_LAST && i < RRGB_N; i++) {
+            px[i] = logo_col;
+        }
+    }
+}
+
 K_THREAD_STACK_DEFINE(rrgb_stack, RRGB_STACK);
 static struct k_thread rrgb_thread;
 
 static void render_once(void) {
+    static uint16_t boot_anim_frame = 0;
+    if (rt.last_press_tick > 0) {
+        boot_anim_frame = BOOT_ANIM_FRAMES;
+    }
+    if (boot_anim_frame < BOOT_ANIM_FRAMES) {
+        render_boot_anim(pixels, boot_anim_frame++);
+        rrgb_strip_show(pixels, RRGB_N);
+        rt.tick++;
+        return;
+    }
+
     rrgb_reactive_tick(rt.tick);
     anim_phase_q8 += rrgb_speed_increment(rt.speed);
     struct rgb_frame f = {
