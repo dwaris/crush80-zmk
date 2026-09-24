@@ -107,18 +107,24 @@ if [ -z "$SERIAL_PORT" ]; then
     exit 1
 fi
 
-echo "  Found: $SERIAL_PORT"
-echo ""
+# Ensure serial port is accessible
+if [ -n "$SERIAL_PORT" ] && [ ! -w "$SERIAL_PORT" ]; then
+    echo "Fixing permissions on $SERIAL_PORT..."
+    sudo chmod 666 "$SERIAL_PORT" 2>/dev/null || true
+fi
 
 # Toggle DTR to wake mcumgr transport
 python3 -c "
 import serial, time
 s = serial.Serial('$SERIAL_PORT', 115200, timeout=1)
-s.dtr = True; time.sleep(0.5); s.close()
+s.dtr = True; time.sleep(0.3); s.close()
 " 2>/dev/null || true
 
 # Flash firmware
 CONN="dev=$SERIAL_PORT,baud=115200"
+
+echo "Erasing secondary slot..."
+$MCUMGR --conntype serial --connstring "$CONN" image erase 2>/dev/null || true
 
 echo "Uploading firmware..."
 $MCUMGR --conntype serial --connstring "$CONN" image upload "$FIRMWARE"
@@ -136,10 +142,14 @@ echo "Marking image for test boot..."
 $MCUMGR --conntype serial --connstring "$CONN" image test "$HASH"
 echo ""
 
+echo "Requesting soft reboot..."
+$MCUMGR --conntype serial --connstring "$CONN" reset 2>/dev/null || true
+echo ""
+
 echo "=== Upload complete! ==="
 echo ""
-echo "  IMPORTANT: Unplug the keyboard USB cable, wait 2 seconds, then plug back in."
-echo "  MCUboot will swap to the new firmware on cold boot (~12 seconds)."
+echo "  If the keyboard reboots automatically into the new slot, wait ~12s for MCUboot swap."
+echo "  If not, unplug the USB cable for 2 seconds and plug it back in."
 echo "  The firmware auto-confirms after successful boot."
 echo ""
 echo "  If something goes wrong, unplug/replug again -- MCUboot reverts automatically"
