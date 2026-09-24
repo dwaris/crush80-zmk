@@ -18,6 +18,14 @@ void rrgb_speed_step(int dir);
 void rrgb_on_key(uint32_t position, bool pressed);
 void rrgb_set_idle(bool idle);   /* activity-idle blank (CONFIG_RAINY_RGB_IDLE_BLANK) */
 void rrgb_battery_gauge_show(void);
+void rrgb_toggle_side(void);
+bool rrgb_side_is_on(void);
+void rrgb_side_mode_step(void);
+void rrgb_side_color_step(void);
+void rrgb_toggle_logo(void);
+bool rrgb_logo_is_on(void);
+void rrgb_logo_mode_step(void);
+void rrgb_logo_color_step(void);
 
 void rrgb_get_persist(struct rrgb_persist *out);
 void rrgb_set_persist(const struct rrgb_persist *in);

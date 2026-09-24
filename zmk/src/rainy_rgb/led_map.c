@@ -1,105 +1,74 @@
+#include <stddef.h>
 #include "led_map.h"
 
-#define RRGB_N 83
+#define RRGB_N 109
+#define KEY_COUNT 88
 
-/* Calibrated on hardware 2026-06-27 via the built-in calibration mode.
- * The WS2812 chain order mostly matches keymap position order (identity),
- * EXCEPT the nav cluster: after ISO-Enter the chain routes through PGUP
- * (pos 57) before row 3 (CapsLock..NUHS = pos 44..56), then PGDN (pos 58).
- * led_to_pos[led] = keymap position under that LED (kept here as a comment
- * for provenance; runtime only needs the inverse + the XY table):
- *   identity 0..43, then led44->57, led45..57->44..56, identity 58..82.
- */
-
-#ifdef CONFIG_RAINY_RGB_ANSI_LEDMAP
-/* ANSI strip: no LED under the ISO <> (NUBS) slot, so the chain after
- * Left Shift (led 59) is one shorter — every subsequent LED sits one index
- * earlier than on ISO, and ISO's last index (82) does not exist. Derived
- * from the ISO calibration + hardware measurements (issue #4): the Enter
- * detour (led44=PGUP, led45..57=row3, led58=PGDN) is unchanged; pos 60 is
- * the absent <> key (&none on ANSI keymaps — entry parked on LShift's LED);
- * pos 61..82 -> led 60..81. */
-static const uint8_t pos_to_led[RRGB_N] = {
-    0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11,
-    12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23,
-    24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35,
-    36, 37, 38, 39, 40, 41, 42, 43, 45, 46, 47, 48,
-    49, 50, 51, 52, 53, 54, 55, 56, 57, 44, 58, 59,
-    59, 60, 61, 62, 63, 64, 65, 66, 67, 68, 69, 70,
-    71, 72, 73, 74, 75, 75, 76, 77, 78, 79, 80,
-    /* ^ pos 72..82. HW calib (issue #4, reactive per-key test): the ANSI strip
-     * omits a SECOND LED in the bottom-right — the key right of Space (pos 77)
-     * has no LED. So pos 77 parks on Space's LED (75) and pos 78..82 slide down
-     * one: 78->76, 79->77, 80..82 (arrows) -> 78,79,80. Last real LED is 80;
-     * ISO's led 81/82 do not exist on ANSI. */
+static const uint8_t pos_to_led[KEY_COUNT] = {
+    /* Row 0: pos 0..16 (offset 0) */
+     0,  1,  2,  3,  4,  5,  6,  7,  8,  9, 10, 11, 12, 13, 14, 15, 16,
+    /* Row 1: pos 17..33 (offset 0) */
+    17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33,
+    /* Row 2: pos 34..50 (offset 0) */
+    34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50,
+    /* Row 3: pos 51..63 (offset +1, pad 51 unpopulated) */
+    52, 53, 54, 55, 56, 57, 58, 59, 60, 61, 62, 63, 64,
+    /* Row 4: pos 64..76 (offset +2, pad 65 unpopulated) */
+    66, 67, 68, 69, 70, 71, 72, 73, 74, 75, 76, 77, 78,
+    /* Row 5: pos 77..87 (pads 82, 84 are unpopulated split space pads) */
+    79, 80, 81, 83, 85, 86, 87, 88, 89, 90, 91,
 };
-#else
-/* keymap position -> led index (inverse of the calibration). */
-static const uint8_t pos_to_led[RRGB_N] = {
-    0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11,
-    12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23,
-    24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35,
-    36, 37, 38, 39, 40, 41, 42, 43, 45, 46, 47, 48,
-    49, 50, 51, 52, 53, 54, 55, 56, 57, 44, 58, 59,
-    60, 61, 62, 63, 64, 65, 66, 67, 68, 69, 70, 71,
-    72, 73, 74, 75, 76, 77, 78, 79, 80, 81, 82,
-};
-#endif /* CONFIG_RAINY_RGB_ANSI_LEDMAP */
 
-/* led index -> normalized physical XY (uniform scale by max x-center=1575,
- * so a circular ripple stays circular; y-centers span 0..91). */
-#ifdef CONFIG_RAINY_RGB_ANSI_LEDMAP
-/* ANSI: chain compacted past BOTH omitted LEDs (ISO's led 60 = <> and
- * led 77 = right of Space): leds 60..75 sit where ISO's 61..76 do, leds
- * 76..80 where ISO's 78..82 do. Indices 81/82 have no physical LED
- * (parked on the last XY). */
 static const struct led_xy led_positions[RRGB_N] = {
-    {8,8}, {29,8}, {45,8}, {62,8}, {78,8}, {99,8},
-    {115,8}, {131,8}, {147,8}, {167,8}, {183,8}, {199,8},
-    {215,8}, {239,8}, {255,8}, {8,26}, {24,26}, {40,26},
-    {57,26}, {73,26}, {89,26}, {105,26}, {121,26}, {138,26},
-    {154,26}, {170,26}, {186,26}, {202,26}, {229,26}, {255,26},
-    {13,42}, {35,42}, {51,42}, {67,42}, {83,42}, {100,42},
-    {116,42}, {132,42}, {148,42}, {164,42}, {181,42}, {197,42},
-    {213,42}, {234,50}, {255,42}, {15,58}, {38,58}, {54,58},
-    {70,58}, {87,58}, {103,58}, {119,58}, {135,58}, {151,58},
-    {168,58}, {184,58}, {200,58}, {216,58}, {255,58}, {10,74},
-    {45,74}, {61,74}, {77,74}, {93,74}, {109,74}, {125,74},
-    {142,74}, {158,74}, {174,74}, {190,74}, {215,74}, {239,74},
-    {11,91}, {32,91}, {53,91}, {113,91}, {188,91}, {204,91},
-    {223,91}, {239,91}, {255,91}, {255,91}, {255,91},
+    /* Row 0: LEDs 0..16 (17 keys: Esc to Pause) */
+    {  7,  7}, { 25,  7}, { 40,  7}, { 54,  7}, { 68,  7}, { 86,  7},
+    {101,  7}, {115,  7}, {129,  7}, {147,  7}, {162,  7}, {176,  7},
+    {190,  7}, {205,  7}, {226,  7}, {241,  7}, {255,  7},
+    /* Row 1: LEDs 17..33 (17 keys: ` to PgUp) */
+    {  7, 25}, { 22, 25}, { 36, 25}, { 50, 25}, { 65, 25}, { 79, 25},
+    { 93, 25}, {108, 25}, {122, 25}, {136, 25}, {151, 25}, {165, 25},
+    {180, 25}, {201, 25}, {226, 25}, {241, 25}, {255, 25},
+    /* Row 2: LEDs 34..50 (17 keys: Tab to PgDn) */
+    { 11, 40}, { 29, 40}, { 43, 40}, { 57, 40}, { 72, 40}, { 86, 40},
+    {101, 40}, {115, 40}, {129, 40}, {144, 40}, {158, 40}, {172, 40},
+    {187, 40}, {205, 40}, {226, 40}, {241, 40}, {255, 40},
+    /* Pad 51: unpopulated ISO Enter pad */
+    {215, 47},
+    /* Row 3: LEDs 52..64 (13 keys: Caps to Enter) */
+    { 13, 54}, { 32, 54}, { 47, 54}, { 61, 54}, { 75, 54}, { 90, 54},
+    {104, 54}, {119, 54}, {133, 54}, {147, 54}, {162, 54}, {176, 54},
+    {199, 54},
+    /* Pad 65: unpopulated ISO NUBS pad */
+    { 22, 68},
+    /* Row 4: LEDs 66..78 (13 keys: LShift to Up) */
+    { 16, 68}, { 40, 68}, { 54, 68}, { 68, 68}, { 83, 68}, { 97, 68},
+    {111, 68}, {126, 68}, {140, 68}, {154, 68}, {169, 68}, {196, 68},
+    {241, 68},
+    /* Row 5: LEDs 79..91 (11 keys + 2 unpopulated split space pads 82, 84) */
+    {  9, 83}, { 27, 83}, { 45, 83}, { 72, 83}, { 99, 83}, {126, 83},
+    {153, 83}, {171, 83}, {189, 83}, {207, 83}, {226, 83}, {241, 83},
+    {255, 83},
+    /* LEDs 92..97: Left Side Lightbar (6 LEDs) */
+    {  0, 10}, {  0, 22}, {  0, 35}, {  0, 48}, {  0, 61}, {  0, 75},
+    /* LEDs 98..103: Right Side Lightbar (6 LEDs) */
+    {255, 10}, {255, 22}, {255, 35}, {255, 48}, {255, 61}, {255, 75},
+    /* LEDs 104..108: Logo LEDs (5 LEDs) */
+    {236, 54}, {239, 54}, {241, 54}, {244, 54}, {246, 54},
 };
-#else
-static const struct led_xy led_positions[RRGB_N] = {
-    {8,8}, {29,8}, {45,8}, {62,8}, {78,8}, {99,8},
-    {115,8}, {131,8}, {147,8}, {167,8}, {183,8}, {199,8},
-    {215,8}, {239,8}, {255,8}, {8,26}, {24,26}, {40,26},
-    {57,26}, {73,26}, {89,26}, {105,26}, {121,26}, {138,26},
-    {154,26}, {170,26}, {186,26}, {202,26}, {229,26}, {255,26},
-    {13,42}, {35,42}, {51,42}, {67,42}, {83,42}, {100,42},
-    {116,42}, {132,42}, {148,42}, {164,42}, {181,42}, {197,42},
-    {213,42}, {234,50}, {255,42}, {15,58}, {38,58}, {54,58},
-    {70,58}, {87,58}, {103,58}, {119,58}, {135,58}, {151,58},
-    {168,58}, {184,58}, {200,58}, {216,58}, {255,58}, {10,74},
-    {28,74}, {45,74}, {61,74}, {77,74}, {93,74}, {109,74},
-    {125,74}, {142,74}, {158,74}, {174,74}, {190,74}, {215,74},
-    {239,74}, {11,91}, {32,91}, {53,91}, {113,91}, {172,91},
-    {188,91}, {204,91}, {223,91}, {239,91}, {255,91},
-};
-#endif /* CONFIG_RAINY_RGB_ANSI_LEDMAP */
 
 const struct led_xy *rrgb_led_xy = led_positions;
 
-const struct led_xy *rrgb_xy_for_position(uint32_t position) {
-    if (position >= RRGB_N) {
-        return (const struct led_xy *)0;
-    }
-    return &led_positions[pos_to_led[position]];
-}
-
 int rrgb_led_for_position(uint32_t position) {
-    if (position >= RRGB_N) {
+    if (position >= KEY_COUNT) {
         return -1;
     }
     return pos_to_led[position];
+}
+
+const struct led_xy *rrgb_xy_for_position(uint32_t position) {
+    int led = rrgb_led_for_position(position);
+    if (led < 0 || led >= RRGB_N) {
+        return NULL;
+    }
+    return &rrgb_led_xy[led];
 }

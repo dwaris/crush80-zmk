@@ -4,6 +4,11 @@
 #include <stdbool.h>
 #include "color.h"   /* struct rrgb */
 
+#define SIDE_LED_FIRST   92   /* Side lightbars: 92..103 (6 left, 6 right) */
+#define SIDE_LED_LAST    103
+#define LOGO_LED_FIRST   104  /* Logo LEDs: 104..108 (5 LEDs) */
+#define LOGO_LED_LAST    108
+
 /* Neutral state — set by the adapter from the ZMK event thread. */
 void rrgb_overlay_set_caps(bool on);
 void rrgb_overlay_set_fn(bool active);

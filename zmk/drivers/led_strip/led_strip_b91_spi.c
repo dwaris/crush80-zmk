@@ -10,9 +10,6 @@
  *   "0" bit = 0xC0 (2 HIGH + 6 LOW) → T0H=333ns, T0L=1000ns
  *   "1" bit = 0xF0 (4 HIGH + 4 LOW) → T1H=667ns, T1L=667ns
  * This matches the OEM firmware approach (PSPI + DMA ch4, verified waveform).
- *
- * GPIO bit-bang (previous approach) works for LEDs 2-83 but LED 1 shows
- * persistent green due to first-bit timing jitter. PSPI has zero jitter.
  */
 
 #include "b91_pspi.h"
@@ -79,7 +76,7 @@ struct b91_led_strip_config {
  * PSPI master mode on PB7 (MOSI), 6 MHz SPI clock.
  * Each WS2812 bit → 1 SPI byte (8 SPI bits at 6 MHz = 1333ns per WS2812 bit).
  * DMA ch4 transfers the encoded buffer to PSPI TX FIFO.
- * Total frame: 83 LEDs × 24 bits × 1333ns = 2656µs.
+ * Total frame for 109 LEDs: 109 × 24 bits × 1333ns ≈ 3.48 ms.
  * Zero CPU involvement during transfer, zero timing jitter.
  * ======================================================================== */
 
@@ -108,16 +105,14 @@ static uint8_t __aligned(4) spi_buf[NUM_LEDS * WS2812_SPI_BYTES_PER_LED];
 	 (2 << 22))                    /* src width = word */
 
 /* --- Interrupt-driven completion ---
- * The render thread sleeps on this semaphore during the ~2.66 ms DMA transfer
+ * The render thread sleeps on this semaphore during the DMA transfer
  * instead of busy-polling B91_PSPI_BUSY, freeing the CPU. The PSPI
- * End-of-Transfer interrupt (PLIC source 23, dedicated to APB SPI — no DMA-IRQ
- * sharing with the BLE blob) gives the semaphore when the last bit is clocked
- * out. A timeout-recovery path keeps LEDs working if the IRQ ever misfires. */
+ * End-of-Transfer interrupt (PLIC source 23, dedicated to APB SPI)
+ * gives the semaphore when the last bit is clocked out. */
 static K_SEM_DEFINE(xfer_done_sem, 0, 1);
 
 /* Cycle count by which the WS2812 reset latch (>=280us low) has elapsed after
- * the previous frame. The next send waits out only the (virtually always zero)
- * remainder — the inter-frame render sleep normally covers the whole gap. */
+ * the previous frame. The next send waits out only the remainder. */
 static uint32_t reset_ready_cyc;
 
 #define LED_PSPI_IRQ       (IRQ_TO_L2(B91_PSPI_IRQ_SRC) | 11)
@@ -170,9 +165,7 @@ static void ws2812_pspi_send(const struct led_rgb *pixels, uint16_t num_pixels)
 	uint32_t tail = num_bytes % 4;
 	sys_write32((tail << 22) | words, ch4 + B91_DMA_SIZE);
 
-	/* Honor the WS2812 reset latch left over from the previous frame. Frames
-	 * are >=11ms apart, so this remainder is virtually always already elapsed
-	 * (busy-waits zero); the signed cycle delta also tolerates counter wrap. */
+	/* Honor the WS2812 reset latch left over from the previous frame. */
 	int32_t reset_remain = (int32_t)(reset_ready_cyc - k_cycle_get_32());
 	if (reset_remain > 0) {
 		k_busy_wait(k_cyc_to_us_ceil32((uint32_t)reset_remain));
@@ -188,12 +181,8 @@ static void ws2812_pspi_send(const struct led_rgb *pixels, uint16_t num_pixels)
 	/* Trigger PSPI transfer: write command byte → starts clocking */
 	sys_write8(0x00, B91_PSPI_TRANS1);
 
-	/* Sleep until the End-of-Transfer IRQ fires (last bit clocked out),
-	 * yielding the CPU for the whole ~2.66 ms transfer instead of spinning. */
-	if (k_sem_take(&xfer_done_sem, K_MSEC(5)) != 0) {
-		/* End-IRQ didn't fire this frame — skip it. The next send fully
-		 * re-initializes DMA + clears stale status, so it self-heals. This
-		 * timeout exists only to prevent a permanent render-thread hang. */
+	/* Sleep until the End-of-Transfer IRQ fires, yielding the CPU during transfer. */
+	if (k_sem_take(&xfer_done_sem, K_MSEC(10)) != 0) {
 		LOG_WRN("LED xfer End-IRQ timeout (frame skipped)");
 	}
 
@@ -275,8 +264,7 @@ static int b91_led_strip_init(const struct device *dev)
 	sys_write32(DMA_CH4_CTRL_CFG, B91_DMA_CH_BASE(4) + B91_DMA_CTRL);
 
 	/* Wire the PSPI End-of-Transfer interrupt so update_rgb can sleep through
-	 * the DMA transfer. Clear any stale status first; irq_enable is required
-	 * (nothing else enables PLIC source 23 for us — cf. the USB driver). */
+	 * the DMA transfer. */
 	sys_write8(B91_PSPI_END_INT, B91_PSPI_IRQ_STATE);
 	irq_connect_dynamic(LED_PSPI_IRQ, LED_PSPI_IRQ_PRIO, ws2812_pspi_isr, NULL, 0);
 	irq_enable(LED_PSPI_IRQ);

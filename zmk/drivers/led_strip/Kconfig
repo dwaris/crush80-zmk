@@ -10,6 +10,7 @@ config LED_STRIP_B91_SPI
 config LED_STRIP_B91_SPI_PC2_POWER
 	bool "Drive PC2 HIGH for LED power enable"
 	depends on LED_STRIP_B91_SPI
+	default y
 	help
 	  PC2 controls a MOSFET gate for LED VCC (active-high = power ON).
 	  Without this, the WS2812 LED strip has no power supply.

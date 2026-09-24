@@ -24,6 +24,12 @@ static int on_rgb_pressed(struct zmk_behavior_binding *binding,
     case RGB_SPI: rrgb_speed_step(+1); break;
     case RGB_SPD: rrgb_speed_step(-1); break;
     case RGB_BAT: rrgb_battery_gauge_show(); break;
+    case RGB_SID: rrgb_toggle_side(); break;
+    case RGB_SIM: rrgb_side_mode_step(); break;
+    case RGB_SIC: rrgb_side_color_step(); break;
+    case RGB_LOG: rrgb_toggle_logo(); break;
+    case RGB_LOM: rrgb_logo_mode_step(); break;
+    case RGB_LOC: rrgb_logo_color_step(); break;
     default: return -ENOTSUP;
     }
     return ZMK_BEHAVIOR_OPAQUE;

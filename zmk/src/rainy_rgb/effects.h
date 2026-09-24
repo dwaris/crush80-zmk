@@ -8,7 +8,7 @@ struct led_xy { uint8_t x, y; };
 
 struct rgb_frame {
     struct rrgb *px;          /* output pixels [n] */
-    uint16_t n;               /* pixel count (83) */
+    uint16_t n;               /* pixel count (109) */
     uint32_t tick;            /* monotonic frame counter (age-based reactive timing) */
     uint32_t phase;           /* FPS-independent animation phase (ambient effects) */
     uint8_t hue, sat, val;    /* global params 0..255 */
@@ -44,6 +44,5 @@ void fx_wave(struct rgb_frame *f);
 void fx_rain(struct rgb_frame *f);
 void fx_heatmap(struct rgb_frame *f);
 void fx_speed_colour(struct rgb_frame *f);
-void fx_walker(struct rgb_frame *f);
 
 #endif

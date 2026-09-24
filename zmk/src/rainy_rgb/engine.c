@@ -13,7 +13,7 @@
 
 LOG_MODULE_REGISTER(rrgb_engine, CONFIG_LOG_DEFAULT_LEVEL);
 
-#define RRGB_N         83
+#define RRGB_N         109
 #define RRGB_FPS       50
 #define RRGB_PERIOD_MS (1000 / RRGB_FPS)   /* 20 ms target frame period (exact) */
 /* 1024 was too tight: a render frame nests render_once() -> an effect's render()
@@ -126,7 +126,7 @@ struct rrgb_runtime {
 };
 
 static struct rrgb_runtime rt = {
-    .on = true, .effect = 0, .hue = 0, .sat = 255, .val = 200, .speed = 32,
+    .on = true, .effect = 0, .hue = 0, .sat = 255, .val = 140, .speed = 32,
 };
 static struct rrgb pixels[RRGB_N];
 static uint32_t anim_phase_q8;   /* .8 fixed-point animation phase accumulator */
@@ -142,6 +142,74 @@ static volatile uint32_t loop_beat;
  * so a volatile flag without locking is enough. */
 static struct rrgb host_px[RRGB_N];
 static volatile bool host_mode;
+static volatile bool side_on = true;
+static volatile bool logo_on = true;
+static uint8_t logo_mode = 0;      /* 0: Sync with main, 1: Solid, 2: Breathing */
+static uint8_t logo_color_idx = 0; /* 0..7 */
+static uint8_t side_mode = 0;      /* 0: Sync with main, 1: Solid, 2: Breathing, 3: Rainbow Wave */
+static uint8_t side_color_idx = 1; /* Default to Cyan */
+
+static const struct rrgb color_palette[] = {
+    {255, 255, 255}, /* 0: White */
+    {0,   255, 255}, /* 1: Cyan */
+    {0,   120, 255}, /* 2: Blue */
+    {200, 0,   255}, /* 3: Purple */
+    {255, 30,  30},  /* 4: Red */
+    {255, 120, 0},   /* 5: Orange */
+    {255, 220, 0},   /* 6: Yellow */
+    {0,   255, 50},  /* 7: Green */
+};
+#define COLOR_PALETTE_SIZE (sizeof(color_palette) / sizeof(color_palette[0]))
+
+static void render_logo(struct rrgb *px, uint32_t tick) {
+    if (logo_mode == 0) {
+        /* Mode 0: Sync with main effect (already rendered in px[104..108]) */
+        return;
+    }
+    struct rrgb col = color_palette[logo_color_idx % COLOR_PALETTE_SIZE];
+    if (logo_mode == 2) {
+        /* Mode 2: Breathing pulse */
+        uint8_t breath = sin8((uint8_t)(tick * 3));
+        col.r = scale8(col.r, breath);
+        col.g = scale8(col.g, breath);
+        col.b = scale8(col.b, breath);
+    }
+    for (uint16_t i = LOGO_LED_FIRST; i <= LOGO_LED_LAST && i < RRGB_N; i++) {
+        px[i] = col;
+    }
+}
+
+static void render_side(struct rrgb *px, uint32_t tick) {
+    if (side_mode == 0) {
+        /* Mode 0: Sync with main effect (already rendered in px[92..103]) */
+        return;
+    }
+    if (side_mode == 3) {
+        /* Mode 3: Rainbow wave flowing down both side lightbars */
+        for (int k = 0; k < 6; k++) {
+            uint8_t h = (uint8_t)(tick * 3 + k * 25);
+            struct rrgb w = hsv2rgb(h, 255, 255);
+            if (SIDE_LED_FIRST + k < RRGB_N) {
+                px[SIDE_LED_FIRST + k] = w;
+            }
+            if (SIDE_LED_FIRST + 6 + k < RRGB_N) {
+                px[SIDE_LED_FIRST + 6 + k] = w;
+            }
+        }
+        return;
+    }
+    struct rrgb col = color_palette[side_color_idx % COLOR_PALETTE_SIZE];
+    if (side_mode == 2) {
+        /* Mode 2: Breathing pulse */
+        uint8_t breath = sin8((uint8_t)(tick * 3));
+        col.r = scale8(col.r, breath);
+        col.g = scale8(col.g, breath);
+        col.b = scale8(col.b, breath);
+    }
+    for (uint16_t i = SIDE_LED_FIRST; i <= SIDE_LED_LAST && i < RRGB_N; i++) {
+        px[i] = col;
+    }
+}
 
 /* Millisecond stamp of the last host frame, for the host-mode watchdog
  * (CONFIG_RGB_MGMT_HOST_TIMEOUT_S). Deliberately the 32-bit uptime: a 64-bit
@@ -191,12 +259,33 @@ static void render_once(void) {
     if (host_mode) {
         /* Host direct mode: the host's buffer replaces the effect layer. */
         for (uint16_t i = 0; i < RRGB_N; i++) { pixels[i] = host_px[i]; }
-    } else if (rt.on) {
+    } else if (rt.on || side_on || logo_on) {
         rrgb_effects[rt.effect].render(&f);
+        /* If keys/backlight RGB is toggled off, blank the keys (0..91) */
+        if (!rt.on) {
+            for (uint16_t i = 0; i < 92; i++) { pixels[i] = (struct rrgb){0, 0, 0}; }
+        }
+        /* If side lightbars are toggled off, blank the side lightbars (92..103); else apply side effect */
+        if (!side_on) {
+            for (uint16_t i = SIDE_LED_FIRST; i <= SIDE_LED_LAST && i < RRGB_N; i++) {
+                pixels[i] = (struct rrgb){0, 0, 0};
+            }
+        } else {
+            render_side(pixels, rt.tick);
+        }
+        /* If logo badge is toggled off, blank the logo (104..108); else apply logo effect */
+        if (!logo_on) {
+            for (uint16_t i = LOGO_LED_FIRST; i <= LOGO_LED_LAST && i < RRGB_N; i++) {
+                pixels[i] = (struct rrgb){0, 0, 0};
+            }
+        } else {
+            render_logo(pixels, rt.tick);
+        }
     } else {
-        /* RGB toggled off: black base so functional overlays still show. */
+        /* Keys, side lightbars, and logo all off: black base so functional overlays still show. */
         for (uint16_t i = 0; i < RRGB_N; i++) { pixels[i] = (struct rrgb){0, 0, 0}; }
     }
+
     rrgb_overlay_render(pixels, RRGB_N, rt.tick);
     rrgb_strip_show(pixels, RRGB_N);
     rt.tick++;
@@ -270,7 +359,7 @@ static void rrgb_loop(void *a, void *b, void *c) {
         /* Black box: what we believe vs what the pin says (see above). */
         uint8_t rail = rrgb_diag_state(rail_on, rt.idle, host_mode, rt.on);
 
-        if (!idle_off && (rt.on || host_mode || rrgb_overlay_active(rt.tick))) {
+        if (!idle_off && (rt.on || side_on || logo_on || host_mode || rrgb_overlay_active(rt.tick))) {
             if (!rail_on) {
                 rrgb_strip_power(true);
                 rail_on = true;
@@ -355,7 +444,7 @@ void rrgb_hue_step(int dir) {
 void rrgb_val_step(int dir) {
     if (host_mode_escape()) { return; }
     int v = rt.val + (dir >= 0 ? 16 : -16);
-    rt.val = (v < 16) ? 16 : (v > 255 ? 255 : v);
+    rt.val = (v < 16) ? 16 : (v > 160 ? 160 : v);
     rrgb_request_save();
 }
 void rrgb_speed_step(int dir) {
@@ -363,6 +452,46 @@ void rrgb_speed_step(int dir) {
     int s = rt.speed + (dir >= 0 ? 8 : -8);
     rt.speed = (s < 1) ? 1 : (s > 255 ? 255 : s);
     rrgb_request_save();
+}
+void rrgb_toggle_side(void) {
+    side_on = !side_on;
+    LOG_INF("side lightbars %s", side_on ? "on" : "off");
+}
+bool rrgb_side_is_on(void) {
+    return side_on;
+}
+void rrgb_side_mode_step(void) {
+    side_mode = (side_mode + 1) % 4;
+    side_on = true;
+    LOG_INF("side mode %d", side_mode);
+}
+void rrgb_side_color_step(void) {
+    side_color_idx = (side_color_idx + 1) % COLOR_PALETTE_SIZE;
+    if (side_mode == 0) {
+        side_mode = 1;
+    }
+    side_on = true;
+    LOG_INF("side color %d", side_color_idx);
+}
+void rrgb_toggle_logo(void) {
+    logo_on = !logo_on;
+    LOG_INF("logo %s", logo_on ? "on" : "off");
+}
+bool rrgb_logo_is_on(void) {
+    return logo_on;
+}
+void rrgb_logo_mode_step(void) {
+    logo_mode = (logo_mode + 1) % 3;
+    logo_on = true;
+    LOG_INF("logo mode %d", logo_mode);
+}
+void rrgb_logo_color_step(void) {
+    logo_color_idx = (logo_color_idx + 1) % COLOR_PALETTE_SIZE;
+    if (logo_mode == 0) {
+        logo_mode = 1;
+    }
+    logo_on = true;
+    LOG_INF("logo color %d", logo_color_idx);
 }
 
 /* --- Host direct-pixel API (called from the mcumgr SMP thread) --- */

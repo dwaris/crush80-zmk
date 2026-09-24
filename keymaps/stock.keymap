@@ -6,6 +6,8 @@
  */
 
 #include <behaviors.dtsi>
+#include <rainy_rgb.dtsi>
+#include <dt-bindings/rainy_rgb.h>
 #include <dt-bindings/zmk/keys.h>
 #include <dt-bindings/zmk/bt.h>
 #include <dt-bindings/zmk/outputs.h>
@@ -58,28 +60,28 @@
 				&kp C_AL_CALC &kp C_AL_AV_CAPTURE_PLAYBACK &kp C_PREV   &kp C_PP
 				&kp C_NEXT    &kp C_MUTE    &kp C_VOL_DN  &kp C_VOL_UP  &kp C_MUTE
 				&trans        &trans        &trans
-				/* Row 1: BT/output shortcuts + BT_CLR on Ins (17 keys) */
+				/* Row 1: BT/output + RGB_TOG on Bspc + BT_CLR on Ins (17 keys) */
 				&trans        &bt BT_SEL 0  &bt BT_SEL 1  &bt BT_SEL 2  &trans
 				&out OUT_USB  &trans        &trans        &trans        &trans
-				&trans        &trans        &trans        &trans
+				&trans        &trans        &trans        &rgb RGB_TOG
 				&bt BT_CLR    &trans        &trans
-				/* Row 2: QWERTY + nav cluster (17 keys) */
+				/* Row 2: QWERTY + nav cluster (17 keys) — Tab=OUT_TOG, P=RGB_LOG, LBKT=RGB_LOM, RBKT=RGB_LOC, BSLH=RGB_EFF */
 				&out OUT_TOG  &trans        &trans        &trans        &trans
 				&trans        &trans        &trans        &trans        &trans
-				&trans        &trans        &trans        &trans
+				&rgb RGB_LOG  &rgb RGB_LOM  &rgb RGB_LOC  &rgb RGB_EFF
 				&trans        &trans        &trans
-				/* Row 3: home row (13 keys) */
+				/* Row 3: home row (13 keys) — SEMI=RGB_SIM, SQT=RGB_SIC, RET=RGB_HUI */
 				&trans        &trans        &trans        &trans        &trans
 				&trans        &trans        &trans        &trans        &trans
-				&trans        &trans                      &trans
-				/* Row 4: shift row (13 keys) */
+				&rgb RGB_SIM  &rgb RGB_SIC                &rgb RGB_HUI
+				/* Row 4: shift row (13 keys) — FSLH=RGB_SID, UP=RGB_BRI */
 				&trans                      &trans        &trans        &trans
 				&trans        &trans        &trans        &trans        &trans
-				&trans        &trans                      &trans        &trans
-				/* Row 5: bottom row (11 keys) */
-				&trans        &trans        &trans                      &trans
+				&trans        &rgb RGB_SID                &trans        &rgb RGB_BRI
+				/* Row 5: bottom row (11 keys) — SPACE=RGB_BAT, LEFT=SPD, DOWN=BRD, RIGHT=SPI */
+				&trans        &trans        &trans                      &rgb RGB_BAT
 				&trans        &trans        &trans        &trans
-				&trans        &trans        &trans
+				&rgb RGB_SPD  &rgb RGB_BRD  &rgb RGB_SPI
 			>;
 		};
 	};

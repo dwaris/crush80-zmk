@@ -4,7 +4,7 @@
 #include "effects.h"     /* struct led_xy */
 #include "led_map.h"     /* rrgb_led_xy, rrgb_led_for_position */
 
-#define RRGB_N        83
+#define RRGB_N        109
 #define PRESS_Q_SIZE  16            /* power of two */
 #define PRESS_Q_MASK  (PRESS_Q_SIZE - 1)
 #define HEAT_BUMP     200
