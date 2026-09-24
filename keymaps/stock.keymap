@@ -1,0 +1,86 @@
+/*
+ * Wobkey Crush 80 — Stock QWERTY keymap
+ *
+ * Layer 0: Standard QWERTY with F1-F12, no home row mods
+ * Layer 1: Fn — BT profiles, output toggle, RGB, bootloader
+ */
+
+#include <behaviors.dtsi>
+#include <dt-bindings/zmk/keys.h>
+#include <dt-bindings/zmk/bt.h>
+#include <dt-bindings/zmk/outputs.h>
+
+#define BASE 0
+#define FN   1
+
+/ {
+	keymap {
+		compatible = "zmk,keymap";
+
+		default_layer {
+			display-name = "Base";
+			bindings = <
+				/* Row 0: F-row (17 keys: Esc, F1-F12, F13, PrtSc, ScrLk, Pause) */
+				&kp ESC       &kp F1        &kp F2        &kp F3        &kp F4
+				&kp F5        &kp F6        &kp F7        &kp F8
+				&kp F9        &kp F10       &kp F11       &kp F12       &kp F13
+				&kp PSCRN     &kp SLCK      &kp PAUSE_BREAK
+				/* Row 1: number row + nav cluster (17 keys) */
+				&kp GRAVE     &kp N1        &kp N2        &kp N3        &kp N4
+				&kp N5        &kp N6        &kp N7        &kp N8        &kp N9
+				&kp N0        &kp MINUS     &kp EQUAL     &kp BSPC
+				&kp INS       &kp HOME      &kp PG_UP
+				/* Row 2: QWERTY + nav cluster (17 keys) */
+				&kp TAB       &kp Q         &kp W         &kp E         &kp R
+				&kp T         &kp Y         &kp U         &kp I         &kp O
+				&kp P         &kp LBKT      &kp RBKT      &kp BSLH
+				&kp DEL       &kp END       &kp PG_DN
+				/* Row 3: home row (13 keys) */
+				&kp CAPS      &kp A         &kp S         &kp D         &kp F
+				&kp G         &kp H         &kp J         &kp K         &kp L
+				&kp SEMI      &kp SQT                     &kp RET
+				/* Row 4: shift row (13 keys) */
+				&kp LSHFT                   &kp Z         &kp X         &kp C
+				&kp V         &kp B         &kp N         &kp M         &kp COMMA
+				&kp DOT       &kp FSLH                    &kp RSHFT     &kp UP
+				/* Row 5: bottom row (11 keys) */
+				&kp LCTRL     &kp LGUI      &kp LALT                    &kp SPACE
+				&kp RALT      &mo FN        &kp RGUI      &kp RCTRL
+				&kp LEFT      &kp DOWN      &kp RIGHT
+			>;
+		};
+
+		fn_layer {
+			display-name = "Fn";
+			bindings = <
+				/* Row 0: bootloader + F1-F12 shortcuts + Mute (17 keys) */
+				&bootloader   &kp C_BRI_DN  &kp C_BRI_UP  &kp C_AC_HOME &kp C_AL_EMAIL
+				&kp C_AL_CALC &kp C_AL_AV_CAPTURE_PLAYBACK &kp C_PREV   &kp C_PP
+				&kp C_NEXT    &kp C_MUTE    &kp C_VOL_DN  &kp C_VOL_UP  &kp C_MUTE
+				&trans        &trans        &trans
+				/* Row 1: BT/output shortcuts + BT_CLR on Ins (17 keys) */
+				&trans        &bt BT_SEL 0  &bt BT_SEL 1  &bt BT_SEL 2  &trans
+				&out OUT_USB  &trans        &trans        &trans        &trans
+				&trans        &trans        &trans        &trans
+				&bt BT_CLR    &trans        &trans
+				/* Row 2: QWERTY + nav cluster (17 keys) */
+				&out OUT_TOG  &trans        &trans        &trans        &trans
+				&trans        &trans        &trans        &trans        &trans
+				&trans        &trans        &trans        &trans
+				&trans        &trans        &trans
+				/* Row 3: home row (13 keys) */
+				&trans        &trans        &trans        &trans        &trans
+				&trans        &trans        &trans        &trans        &trans
+				&trans        &trans                      &trans
+				/* Row 4: shift row (13 keys) */
+				&trans                      &trans        &trans        &trans
+				&trans        &trans        &trans        &trans        &trans
+				&trans        &trans                      &trans        &trans
+				/* Row 5: bottom row (11 keys) */
+				&trans        &trans        &trans                      &trans
+				&trans        &trans        &trans        &trans
+				&trans        &trans        &trans
+			>;
+		};
+	};
+};

@@ -1,0 +1,5 @@
+board:
+  name: crush80
+  vendor: wobkey
+  socs:
+    - name: tlsr9518
