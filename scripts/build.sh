@@ -54,10 +54,14 @@ fi
 if [ -f "$REPO_DIR/.workspace_path" ]; then
     # shellcheck source=/dev/null
     source "$REPO_DIR/.workspace_path"
+elif [ -d "$REPO_DIR/.workspace/.west" ]; then
+    WORKSPACE_DIR="$REPO_DIR/.workspace"
+elif [ -d "$REPO_DIR/workspace/.west" ]; then
+    WORKSPACE_DIR="$REPO_DIR/workspace"
 elif [ -d "$HOME/Projects/crush80-workspace/.west" ]; then
     WORKSPACE_DIR="$HOME/Projects/crush80-workspace"
 else
-    echo "ERROR: West workspace not found. Run: bash setup.sh"
+    echo "ERROR: West workspace not found. Run: nix run .#build or bash setup.sh"
     exit 1
 fi
 
@@ -66,10 +70,21 @@ export PATH="$HOME/miniforge3/bin:$HOME/.local/bin:$HOME/go/bin:/usr/local/bin:/
 WEST_USER_BIN="$(python3 -m site --user-base 2>/dev/null || echo "$HOME/.local")/bin"
 if [[ -d "$WEST_USER_BIN" ]]; then export PATH="$WEST_USER_BIN:$PATH"; fi
 
-export ZEPHYR_SDK_INSTALL_DIR="$HOME/zephyr-sdk-0.17.0"
+if [ -z "${ZEPHYR_SDK_INSTALL_DIR:-}" ]; then
+    NIX_SDK="$(nix build .#zephyrSdk --no-link --print-out-paths 2>/dev/null || true)"
+    if [ -n "$NIX_SDK" ] && [ -d "$NIX_SDK" ]; then
+        export ZEPHYR_SDK_INSTALL_DIR="$NIX_SDK"
+    elif [ -d "$HOME/zephyr-sdk-0.17.0" ]; then
+        export ZEPHYR_SDK_INSTALL_DIR="$HOME/zephyr-sdk-0.17.0"
+    fi
+fi
 
 echo "Workspace: $WORKSPACE_DIR"
 echo "Repo:      $REPO_DIR"
+
+export ZEPHYR_BASE="$WORKSPACE_DIR/zephyr"
+export Zephyr_DIR="$WORKSPACE_DIR/zephyr/share/zephyr-package/cmake"
+export CMAKE_PREFIX_PATH="$WORKSPACE_DIR/zephyr:${CMAKE_PREFIX_PATH:-}"
 
 # ── Sync board files into workspace ──────────────────────────────────────────
 echo ""

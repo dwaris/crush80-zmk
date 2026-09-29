@@ -7,7 +7,7 @@
 set -euo pipefail
 
 REPO_DIR="$(cd "$(dirname "$0")/.." && pwd)"
-WORKSPACE_DIR="$HOME/Projects/crush80-workspace"
+WORKSPACE_DIR="${CRUSH80_WORKSPACE:-$REPO_DIR/.workspace}"
 SDK_VERSION="0.17.0"
 SDK_DIR="$HOME/zephyr-sdk-$SDK_VERSION"
 

@@ -31,6 +31,8 @@ __pycache__/
 
 # Zephyr west workspace
 .west/
+.workspace/
+workspace/
 
 # Editor and OS
 .vscode/

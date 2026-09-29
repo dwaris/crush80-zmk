@@ -20,16 +20,16 @@
     packages = forEachSupportedSystem ({pkgs, ...}: let
       zephyrSdk = pkgs.stdenv.mkDerivation rec {
         pname = "zephyr-sdk-riscv";
-        version = "1.0.1";
+        version = "0.17.0";
 
         srcMinimal = pkgs.fetchurl {
           url = "https://github.com/zephyrproject-rtos/sdk-ng/releases/download/v${version}/zephyr-sdk-${version}_linux-x86_64_minimal.tar.xz";
-          hash = "sha256-ypvA/2b6/KHaydWSo22VPPFtCWqdCbHANX8CHPn2p+s=";
+          hash = "sha256-BRTSxoTftfYyc3S/7Qs9z3J/8VABldJrNzD5glL+0JU=";
         };
 
         srcToolchain = pkgs.fetchurl {
-          url = "https://github.com/zephyrproject-rtos/sdk-ng/releases/download/v${version}/toolchain_gnu_linux-x86_64_riscv64-zephyr-elf.tar.xz";
-          hash = "sha256-AXUINMRx+9szXBuLiu4XAQoZaJOJV9uFZAw2YjV3Gjg=";
+          url = "https://github.com/zephyrproject-rtos/sdk-ng/releases/download/v${version}/toolchain_linux-x86_64_riscv64-zephyr-elf.tar.xz";
+          hash = "sha256-zZd4TIjeAgfJPPOG952NJga0ZZjcdNStEsrdVhdZWWQ=";
         };
 
         dontBuild = true;
@@ -68,21 +68,21 @@
       inherit zephyrSdk;
 
       build = pkgs.writeShellScriptBin "crush80-build" ''
-        export ZEPHYR_SDK_INSTALL_DIR="''${ZEPHYR_SDK_INSTALL_DIR:-${zephyrSdk}}"
+        export ZEPHYR_SDK_INSTALL_DIR="${zephyrSdk}"
         export ZEPHYR_TOOLCHAIN_VARIANT="zephyr"
         export PATH="${pkgs.lib.makeBinPath tools}:$PATH"
         exec bash ./scripts/build.sh "$@"
       '';
 
       install = pkgs.writeShellScriptBin "crush80-install" ''
-        export ZEPHYR_SDK_INSTALL_DIR="''${ZEPHYR_SDK_INSTALL_DIR:-${zephyrSdk}}"
+        export ZEPHYR_SDK_INSTALL_DIR="${zephyrSdk}"
         export ZEPHYR_TOOLCHAIN_VARIANT="zephyr"
         export PATH="${pkgs.lib.makeBinPath tools}:$PATH"
         exec bash ./scripts/install_zmk.sh "$@"
       '';
 
       update = pkgs.writeShellScriptBin "crush80-update" ''
-        export ZEPHYR_SDK_INSTALL_DIR="''${ZEPHYR_SDK_INSTALL_DIR:-${zephyrSdk}}"
+        export ZEPHYR_SDK_INSTALL_DIR="${zephyrSdk}"
         export ZEPHYR_TOOLCHAIN_VARIANT="zephyr"
         export PATH="${pkgs.lib.makeBinPath tools}:$PATH"
         exec bash ./scripts/update.sh "$@"
