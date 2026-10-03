@@ -15,11 +15,18 @@ LOG_MODULE_REGISTER(rrgb_state, CONFIG_LOG_DEFAULT_LEVEL);
 static int rrgb_set(const char *name, size_t len, settings_read_cb read_cb, void *cb_arg) {
     const char *next;
     if (settings_name_steq(name, "state", &next) && !next) {
-        struct rrgb_persist p;
-        if (len != sizeof(p)) { return -EINVAL; }
-        int rc = read_cb(cb_arg, &p, sizeof(p));
-        if (rc >= 0) { rrgb_set_persist(&p); return 0; }
-        return rc;
+        if (len == sizeof(struct rrgb_persist)) {
+            struct rrgb_persist p;
+            int rc = read_cb(cb_arg, &p, sizeof(p));
+            if (rc >= 0) { rrgb_set_persist(&p); return 0; }
+            return rc;
+        } else if (len == sizeof(struct rrgb_persist_v1)) {
+            struct rrgb_persist_v1 p1;
+            int rc = read_cb(cb_arg, &p1, sizeof(p1));
+            if (rc >= 0) { rrgb_set_persist_v1(&p1); return 0; }
+            return rc;
+        }
+        return -EINVAL;
     }
     return -ENOENT;
 }
@@ -31,7 +38,8 @@ static void save_work_fn(struct k_work *w) {
     struct rrgb_persist p;
     rrgb_get_persist(&p);
     settings_save_one(RRGB_KEY, &p, sizeof(p));
-    LOG_INF("persisted: effect=%u on=%u val=%u", p.effect, p.on, p.val);
+    LOG_INF("persisted: effect=%u on=%u val=%u side_on=%u logo_on=%u",
+            p.effect, p.on, p.val, p.side_on, p.logo_on);
 }
 static K_WORK_DELAYABLE_DEFINE(rrgb_save_work, save_work_fn);
 

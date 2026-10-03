@@ -3,10 +3,24 @@
 #include <stdint.h>
 #include <stdbool.h>
 
+#define RRGB_PERSIST_VERSION 2
+
+struct rrgb_persist_v1 {
+    uint8_t version;
+    bool on;
+    uint8_t effect, hue, sat, val, speed;
+};
+
 struct rrgb_persist {
     uint8_t version;
     bool on;
     uint8_t effect, hue, sat, val, speed;
+    bool side_on;
+    uint8_t side_mode;
+    uint8_t side_color_idx;
+    bool logo_on;
+    uint8_t logo_mode;
+    uint8_t logo_color_idx;
 };
 
 void rrgb_engine_init(void);
@@ -29,6 +43,7 @@ void rrgb_logo_color_step(void);
 
 void rrgb_get_persist(struct rrgb_persist *out);
 void rrgb_set_persist(const struct rrgb_persist *in);
+void rrgb_set_persist_v1(const struct rrgb_persist_v1 *in);
 void rrgb_request_save(void); /* implemented in state.c */
 
 /* --- Host-controlled direct pixel mode (rgb_mgmt mcumgr group) ---

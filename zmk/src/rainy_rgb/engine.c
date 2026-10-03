@@ -226,15 +226,35 @@ static void host_touch(void) {
     host_mode = true;
 }
 
-#define RRGB_PERSIST_VERSION 1
-
 void rrgb_get_persist(struct rrgb_persist *out) {
     out->version = RRGB_PERSIST_VERSION;
     out->on = rt.on; out->effect = rt.effect; out->hue = rt.hue;
     out->sat = rt.sat; out->val = rt.val; out->speed = rt.speed;
+    out->side_on = side_on;
+    out->side_mode = side_mode;
+    out->side_color_idx = side_color_idx;
+    out->logo_on = logo_on;
+    out->logo_mode = logo_mode;
+    out->logo_color_idx = logo_color_idx;
 }
+
 void rrgb_set_persist(const struct rrgb_persist *in) {
     if (in->version != RRGB_PERSIST_VERSION) { return; }
+    rt.on = in->on;
+    rt.effect = (in->effect < rrgb_effect_count) ? in->effect : 0;
+    rt.hue = in->hue; rt.sat = in->sat;
+    rt.val = (in->val < 16) ? 16 : in->val;
+    rt.speed = (in->speed < 1) ? 1 : in->speed;
+    side_on = in->side_on;
+    side_mode = (in->side_mode < 4) ? in->side_mode : 0;
+    side_color_idx = (in->side_color_idx < COLOR_PALETTE_SIZE) ? in->side_color_idx : 0;
+    logo_on = in->logo_on;
+    logo_mode = (in->logo_mode < 3) ? in->logo_mode : 0;
+    logo_color_idx = (in->logo_color_idx < COLOR_PALETTE_SIZE) ? in->logo_color_idx : 0;
+}
+
+void rrgb_set_persist_v1(const struct rrgb_persist_v1 *in) {
+    if (in->version != 1) { return; }
     rt.on = in->on;
     rt.effect = (in->effect < rrgb_effect_count) ? in->effect : 0;
     rt.hue = in->hue; rt.sat = in->sat;
@@ -250,25 +270,27 @@ static void render_boot_anim(struct rrgb *px, uint16_t frame) {
     }
 
     /* Phase 1: Sidebars charge up from bottom to top (Frames 0..25) */
-    if (frame < 30) {
-        uint8_t progress = (uint8_t)(frame * 6 / 25);
-        for (uint8_t k = 0; k < 6; k++) {
-            if (5 - k <= progress) {
-                uint8_t val = (5 - k == progress) ? 255 : 180;
-                struct rrgb col = (struct rrgb){0, scale8(val, 220), val};
-                px[SIDE_LED_FIRST + k] = col;
-                px[SIDE_LED_FIRST + 6 + k] = col;
+    if (side_on) {
+        if (frame < 30) {
+            uint8_t progress = (uint8_t)(frame * 6 / 25);
+            for (uint8_t k = 0; k < 6; k++) {
+                if (5 - k <= progress) {
+                    uint8_t val = (5 - k == progress) ? 255 : 180;
+                    struct rrgb col = (struct rrgb){0, scale8(val, 220), val};
+                    px[SIDE_LED_FIRST + k] = col;
+                    px[SIDE_LED_FIRST + 6 + k] = col;
+                }
             }
-        }
-    } else {
-        /* Keep sidebars lit during sweep */
-        for (uint16_t i = SIDE_LED_FIRST; i <= SIDE_LED_LAST && i < RRGB_N; i++) {
-            px[i] = (struct rrgb){0, 200, 240};
+        } else {
+            /* Keep sidebars lit during sweep */
+            for (uint16_t i = SIDE_LED_FIRST; i <= SIDE_LED_LAST && i < RRGB_N; i++) {
+                px[i] = (struct rrgb){0, 200, 240};
+            }
         }
     }
 
     /* Phase 2: Beam sweeps left to right across keys (Frames 15..70) */
-    if (frame >= 15 && frame <= 70) {
+    if (rt.on && frame >= 15 && frame <= 70) {
         int16_t beam_x = (int16_t)((frame - 15) * 260 / 55);
 
         for (uint16_t i = 0; i < 92 && i < RRGB_N; i++) {
@@ -300,7 +322,7 @@ static void render_boot_anim(struct rrgb *px, uint16_t frame) {
     }
 
     /* Phase 3: Logo badge pulse when beam reaches the right side (Frames 50..80) */
-    if (frame >= 50) {
+    if (logo_on && frame >= 50) {
         uint8_t pulse_frame = (uint8_t)(frame - 50);
         uint8_t pulse_bright = (pulse_frame < 10) ? (pulse_frame * 25) : (uint8_t)(255 - (pulse_frame - 10) * 12);
         struct rrgb logo_col = {
@@ -381,7 +403,7 @@ static void clear_strip(void) {
 
 static void rrgb_loop(void *a, void *b, void *c) {
     ARG_UNUSED(a); ARG_UNUSED(b); ARG_UNUSED(c);
-    bool was_lit = false;
+    bool was_lit = true;
     bool rail_on = true;        /* driver init leaves PC2 HIGH */
     uint32_t dark_ticks = 0;
     for (;;) {
@@ -537,44 +559,56 @@ void rrgb_speed_step(int dir) {
     rrgb_request_save();
 }
 void rrgb_toggle_side(void) {
+    if (host_mode_escape()) { return; }
     side_on = !side_on;
     LOG_INF("side lightbars %s", side_on ? "on" : "off");
+    rrgb_request_save();
 }
 bool rrgb_side_is_on(void) {
     return side_on;
 }
 void rrgb_side_mode_step(void) {
+    if (host_mode_escape()) { return; }
     side_mode = (side_mode + 1) % 4;
     side_on = true;
     LOG_INF("side mode %d", side_mode);
+    rrgb_request_save();
 }
 void rrgb_side_color_step(void) {
+    if (host_mode_escape()) { return; }
     side_color_idx = (side_color_idx + 1) % COLOR_PALETTE_SIZE;
     if (side_mode == 0) {
         side_mode = 1;
     }
     side_on = true;
     LOG_INF("side color %d", side_color_idx);
+    rrgb_request_save();
 }
 void rrgb_toggle_logo(void) {
+    if (host_mode_escape()) { return; }
     logo_on = !logo_on;
     LOG_INF("logo %s", logo_on ? "on" : "off");
+    rrgb_request_save();
 }
 bool rrgb_logo_is_on(void) {
     return logo_on;
 }
 void rrgb_logo_mode_step(void) {
+    if (host_mode_escape()) { return; }
     logo_mode = (logo_mode + 1) % 3;
     logo_on = true;
     LOG_INF("logo mode %d", logo_mode);
+    rrgb_request_save();
 }
 void rrgb_logo_color_step(void) {
+    if (host_mode_escape()) { return; }
     logo_color_idx = (logo_color_idx + 1) % COLOR_PALETTE_SIZE;
     if (logo_mode == 0) {
         logo_mode = 1;
     }
     logo_on = true;
     LOG_INF("logo color %d", logo_color_idx);
+    rrgb_request_save();
 }
 
 /* --- Host direct-pixel API (called from the mcumgr SMP thread) --- */
